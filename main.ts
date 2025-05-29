@@ -1,6 +1,5 @@
 import process from "node:process";
 import { getRandomPort } from "get-port-please";
-import { startTunnel } from "untun";
 import { cli, define } from "gunshi";
 import terminalLink from "terminal-link";
 import { bold, green, italic } from "yoctocolors";
@@ -8,13 +7,20 @@ import { bold, green, italic } from "yoctocolors";
 import json from "./deno.json" with { type: "json" };
 import { validateURL } from "./util.ts";
 import { createApp } from "./proxy.ts";
-import { ensure, is } from "@core/unknownutil";
+import { startTunnel } from "./startTunnel.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 const command = define({
   toKebab: true,
   args: {
+    subdomain: {
+      type: "custom",
+      alias: "s",
+      default: "htts://ollama.example.com",
+      description: "Your Cloudflare subdmain.",
+      parse: validateURL,
+    },
     endpoint: {
       type: "custom",
       alias: "e",
@@ -47,6 +53,11 @@ const command = define({
       negatable: true,
       description: "Use cloudflared to tunnel the server",
     },
+    tunnelName: {
+      type: "string",
+      alias: "t",
+      description: "The name of the tunnel",
+    },
   },
   examples: [
     "curxy",
@@ -73,13 +84,14 @@ const command = define({
         app.fetch,
       ),
       ctx.values.cloudflared &&
-      startTunnel({ port: ctx.values.port, hostname: ctx.values.hostname })
-        .then(async (tunnel) => ensure(await tunnel?.getURL(), is.String))
-        .then((url) =>
+      startTunnel({
+        tunnelName: ctx.values.tunnelName ?? 'curxy',
+      })
+        .then(() =>
           console.log(
-            `Server running at: ${bold(terminalLink(url, url))}\n`,
+            `Server running at: ${bold(terminalLink(ctx.values.subdomain, ctx.values.subdomain))}\n`,
             green(
-              `enter ${bold(terminalLink(`${url}/v1`, `${url}/v1`))} into ${
+              `enter ${bold(terminalLink(`${ctx.values.subdomain}/v1`, `${ctx.values.subdomain}/v1`))} into ${
                 italic(`Override OpenAl Base URL`)
               } section in cursor settings`,
             ),
